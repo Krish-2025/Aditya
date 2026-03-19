@@ -1,71 +1,60 @@
-# Task + Reminder Architecture Refactor
-Status: FINALIZED
+# Specification: Task & Reminder Architecture Restructure
 
-## 1. Overview
-The goal is to restructure the task and reminder architecture to a robust, production-ready data model with strict lifecycle logic separating master templates from daily child instances.
+## Status
+DRAFT (Awaiting User Review to become FINALIZED)
 
-## 2. Core Data Model Rules
+## Core Architecture
 
-### Master Tasks Table (`tasks`)
-- **Purpose:** Acts as a rule book/template for recurring tasks only.
-- **Content:** Contains only tasks with a recurrence rule (daily, weekly, custom, every N days).
-- **Rule:** "Once" only tasks NEVER enter this table. They immediately become a child instance.
-- **Fields:**
-  - Name (used as ID)
-  - Time
-  - Recurrence option
-  - Start Date (default: today or next applicable date)
-  - End Date (optional)
-  - Points
-  - Penalty Points
-  - Description
-  - Duration (optional)
+### 1. Data Models
+**Master Tasks Table (`tasks`)**
+- Acts purely as a rule book/template for recurring tasks.
+- **Never** stores daily completion state (no `status`, `completionTime`, etc.).
+- Required fields: Name (used as ID), Time, Points, Penalty Points, Recurrence rules.
+- Optional fields: Duration, Description, Start Date, End Date.
+- Recurrence defaults: If no Start Date -> Starts today (if time hasn't passed) else next day. No End Date -> Repeats infinitely.
 
-### Child Instances Table (`task_instances`)
-- **Purpose:** Represents the actual daily actionable task.
-- **Connection to Master:** Child instances are generated from the Master table based on recurrence rules. 
-- **Decoupling:** Any edit to a child instance breaks its connection/sync with the Master task. 
-- **Cascading Changes:** Changes to a Master cascade to its connected child instances.
-- **Deletion:** Deleting a Master task deletes all *future* child instances (including today's instances if the time has not yet passed).
+**Task Instances Table (`task_instances`)**
+- "Once-only" tasks skip the Master Table and are created exclusively here.
+- Child instances are spawned for all dates according to Master recurrence rules.
+- **Connection Logic**:
+  - Changes to Master cascade to all connected child instances.
+  - If a child instance is modified individually, its connection to the Master is broken (Master updates no longer affect it).
+  - Deleting the Master deletes all *future* connected child instances (including today's if its time hasn't passed).
 
-### Records / History Table (`task_events` / `records`)
-- **Purpose:** Immutable audit log organized by Date.
-- **Content:** Every activity, state change, and rescheduling event with a timestamp.
-- **Rule:** These records are NEVER deleted, even if the Master task or Child instance is deleted.
+**Records/Audit Log (`task_events` / `records`)**
+- Date-wise table logging every activity occurring on a task (state changes, rescheduling, completions).
+- Immutable: Records are never modified or deleted, even if the Master or Child instance is deleted.
 
-## 3. Reminder Lifecycle (Phase 1 & Phase 2)
+### 2. Task Lifecycle & Reminders
 
-### If Duration is NOT given:
-- **Phase 1 Only:** 
-  - Reminder shows: "ON-It"
-  - If "ON-It" is clicked, it expands to show "Skip" and "Done".
-  - "Skip": Task is cut. Applies penalty points (if any).
-  - "Done": Applies positive points (if any).
+**Duration Constraints**
+- If Duration is **not** provided:
+  - Phase 1 Reminder Options: `ON-It` (Started), `Skip`, `Done`.
+  - Flow for `ON-It`: Task changes state to Started/Blue, and if clicked again, shows `Skip` and `Done` options.
+  - `Skip` applies penalty points, `Done` awards points.
 
-### If Duration IS given:
-- **Phase 1 (Start of task):**
-  - "Started"
-  - "Already done"
-  - "Skip"
-  - "Reschedule": Shows options to delay by T minutes or a specific time (XX:XX).
-- **Phase 2 (End of task duration):**
-  - "Done"
-  - "Extend": Shows options to extend by T minutes.
-  - "Skip"
-  - "Reschedule": Reverts the task back to Phase 1.
+**Phases (With Duration)**
+- **Phase 1 Reminder**:
+  - `Started`
+  - `Already done`
+  - `Skip`
+  - `Reschedule`: Reveals sub-options to "Delay by T minutes" or "Reschedule to XX:XX time".
+- **Phase 2 Reminder**:
+  - `Done`
+  - `Extend`: reveals option to extend duration by T minutes.
+  - `Skip`
+  - `Reschedule`: Rolls the state back to Phase 1.
 
-## 4. UI Actions (Today Tab / Scroll View)
-- **Clicking an upcoming task:** Shows "Done" and "Skip".
-- **Clicking a Skipped / Unresponsive task:** Shows "Reschedule" (restricted to today only) and "Done".
+### 3. UI Logic & Views
+- **Total Points**: Calculated exclusively based on the final/current states of Child instances for that day.
+- **Today Tab / Scroll View Interactions**:
+  - Clicking an *upcoming* task box: Shows `Done` and `Skip` actions.
+  - Clicking an *already skipped* or *unresponsive* task box: Shows `Reschedule` (restricted to today only) and `Done` actions.
 
-## 5. Points System
-- Calculated based ONLY on the final/current state of all child instances for that day.
-- "Once" tasks are treated as normal child instances without a parent.
-
-## 6. Success Criteria
-- [ ] Database schema is successfully migrated to support the strict separation.
-- [ ] Task creation flow correctly skips the Master table for "Once" tasks.
-- [ ] Notification logic correctly handles duration-less tasks vs duration tasks.
-- [ ] UI accurately reflects the popup options for Phase 1 and Phase 2 based on task state.
-- [ ] Editing a child task safely severs the sync tie from the parent.
-- [ ] Deleting a parent correctly purges only the eligible future child tasks.
+## Acceptance Criteria
+- [ ] Database schema updated to strictly separate templates (tasks) from executions (instances).
+- [ ] Master table editing correctly cascades to instances unless instance is disconnected.
+- [ ] Master deletion strictly purges future instances without affecting history.
+- [ ] Task creation flow defaults to "Once", routing correctly.
+- [ ] Reminder logic correctly diverges based on presence of Duration.
+- [ ] UI action sheets correctly reflect available options based on task state and phase.

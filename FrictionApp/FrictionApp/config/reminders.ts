@@ -1,0 +1,5 @@
+export const REMINDER_POLL_INTERVAL_MS = 1_000;
+
+export const PHASE1_NO_RESPONSE_SECONDS = 5 * 60;
+export const PHASE2_NO_RESPONSE_SECONDS = 5 * 60;
+
