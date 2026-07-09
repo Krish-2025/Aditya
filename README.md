@@ -5,7 +5,7 @@ A static blood-pressure tracking app that can be published on GitHub Pages.
 ## What it does
 
 - Saves morning, evening, and night sessions in the browser using IndexedDB.
-- Stores three BP measurements per session and uses their rounded average for charts and status labels.
+- Stores 1-4 BP measurements per session and uses their rounded average for charts and status labels.
 - Shows recent readings, daily completion, status labels, and a continuous pan/zoom graph.
 - Exports CSV and full JSON backups.
 - Optionally syncs to Supabase with login and row-level security.
@@ -43,4 +43,4 @@ The anon key is safe to put in a static site only because row-level security is 
 
 ## Medical note
 
-The reference bands follow common AHA/AAP-style thresholds for adolescents aged 13 and older: normal below 120/80, elevated 120-129 and below 80, stage 1 at 130-139 or 80-89, and stage 2 at 140 or 90 and above. For each session, the app stores all three measurements and graphs the average, matching the common recommendation to take repeated readings rather than rely on one value. This app is a tracking tool, not a diagnosis tool. A clinician should interpret the readings, especially for a 17-year-old with repeated high values.
+The reference bands follow common AHA/AAP-style thresholds for adolescents aged 13 and older: normal below 120/80, elevated 120-129 and below 80, stage 1 at 130-139 or 80-89, and stage 2 at 140 or 90 and above. For each session, the app stores every measurement entered and graphs the average, matching the common recommendation to take repeated readings rather than rely on one value. This app is a tracking tool, not a diagnosis tool. A clinician should interpret the readings, especially for a 17-year-old with repeated high values.

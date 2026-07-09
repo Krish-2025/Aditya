@@ -36,6 +36,10 @@
           <i data-lucide="clipboard-plus"></i>
           Readings
         </button>
+        <button class="tab-button" type="button" data-tab="raw">
+          <i data-lucide="table-2"></i>
+          Raw Data
+        </button>
         <button class="tab-button" type="button" data-tab="graph">
           <i data-lucide="chart-no-axes-combined"></i>
           Graph
@@ -92,28 +96,24 @@
               </label>
             </div>
 
-            <div class="reading-set" aria-label="Three blood pressure readings">
+            <div class="reading-set" aria-label="Blood pressure measurements">
               <div class="reading-set-head">
                 <span>Reading</span>
                 <span>Systolic</span>
                 <span>Diastolic</span>
               </div>
-              <div class="reading-row">
-                <strong>1</strong>
-                <input id="systolic1" name="systolic1" type="number" min="60" max="260" placeholder="160" required />
-                <input id="diastolic1" name="diastolic1" type="number" min="30" max="180" placeholder="89" required />
+              <div class="measurement-rows" id="measurementRows"></div>
+              <div class="reading-controls">
+                <button class="secondary-button" id="removeMeasurement" type="button">
+                  <i data-lucide="minus"></i>
+                  Remove
+                </button>
+                <button class="secondary-button" id="addMeasurement" type="button">
+                  <i data-lucide="plus"></i>
+                  Add
+                </button>
               </div>
-              <div class="reading-row">
-                <strong>2</strong>
-                <input id="systolic2" name="systolic2" type="number" min="60" max="260" placeholder="158" required />
-                <input id="diastolic2" name="diastolic2" type="number" min="30" max="180" placeholder="88" required />
-              </div>
-              <div class="reading-row">
-                <strong>3</strong>
-                <input id="systolic3" name="systolic3" type="number" min="60" max="260" placeholder="156" required />
-                <input id="diastolic3" name="diastolic3" type="number" min="30" max="180" placeholder="87" required />
-              </div>
-              <p class="helper-text">All three are saved. The session average is used for the graph and status.</p>
+              <p class="helper-text">All measurements are saved. The session average is used for the graph and status.</p>
             </div>
 
             <div class="form-grid compact-grid">
@@ -164,6 +164,33 @@
                 </tr>
               </thead>
               <tbody id="readingsTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="tab-panel" id="rawPanel">
+        <section class="raw-panel">
+          <div class="section-heading">
+            <div>
+              <p class="panel-label">Raw data</p>
+              <h2>Newest sessions first</h2>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Slot</th>
+                  <th>Average</th>
+                  <th>Raw readings</th>
+                  <th>Pulse</th>
+                  <th>Notes</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="rawTable"></tbody>
             </table>
           </div>
         </section>

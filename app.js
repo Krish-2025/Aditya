@@ -3,6 +3,9 @@ const DB_VERSION = 1;
 const STORE_NAME = "readings";
 const CONFIG_KEY = "bp-log-supabase-config";
 const SLOTS = ["Morning", "Evening", "Night"];
+const DEFAULT_MEASUREMENTS = 3;
+const MIN_MEASUREMENTS = 1;
+const MAX_MEASUREMENTS = 4;
 
 let db;
 let readings = [];
@@ -10,6 +13,7 @@ let chart;
 let supabaseClient = null;
 let supabaseSession = null;
 let chartPluginsRegistered = false;
+let measurementCount = DEFAULT_MEASUREMENTS;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -20,7 +24,9 @@ const els = {
   slotStatus: $("#slotStatus"),
   form: $("#readingForm"),
   formAlert: $("#formAlert"),
+  measurementRows: $("#measurementRows"),
   table: $("#readingsTable"),
+  rawTable: $("#rawTable"),
   lastCategory: $("#lastCategory"),
   lastCategoryText: $("#lastCategoryText"),
   syncStatus: $("#syncStatus"),
@@ -106,6 +112,22 @@ function localTimeString(date = new Date()) {
   return date.toTimeString().slice(0, 5);
 }
 
+function readingTimestamp(reading) {
+  return new Date(reading.takenAt).getTime();
+}
+
+function readingAuditTimestamp(reading) {
+  return new Date(reading.updatedAt || reading.createdAt || reading.takenAt).getTime();
+}
+
+function compareReadingsOldestFirst(a, b) {
+  return readingTimestamp(a) - readingTimestamp(b) || readingAuditTimestamp(a) - readingAuditTimestamp(b);
+}
+
+function compareReadingsNewestFirst(a, b) {
+  return readingTimestamp(b) - readingTimestamp(a) || readingAuditTimestamp(b) - readingAuditTimestamp(a);
+}
+
 function categoryFor(systolic, diastolic) {
   if (systolic > 180 || diastolic > 120) {
     return {
@@ -142,11 +164,16 @@ function categoryFor(systolic, diastolic) {
   };
 }
 
+function numberFromInput(input) {
+  const value = input.value.trim();
+  return value === "" ? Number.NaN : Number(value);
+}
+
 function collectMeasurementSet() {
-  return [1, 2, 3].map((number) => ({
-    number,
-    systolic: Number($(`#systolic${number}`).value),
-    diastolic: Number($(`#diastolic${number}`).value),
+  return $$(".measurement-row").map((row, index) => ({
+    number: index + 1,
+    systolic: numberFromInput(row.querySelector("[data-field='systolic']")),
+    diastolic: numberFromInput(row.querySelector("[data-field='diastolic']")),
   }));
 }
 
@@ -159,8 +186,9 @@ function averageMeasurementSet(measurements) {
 }
 
 function validateMeasurementSet(measurements) {
+  if (!measurements.length) return "Add at least one blood pressure reading.";
   if (measurements.some((item) => !Number.isFinite(item.systolic) || !Number.isFinite(item.diastolic))) {
-    return "Enter all three systolic and diastolic readings.";
+    return "Enter systolic and diastolic for each reading row.";
   }
   const outOfRange = measurements.some((item) => item.systolic < 60 || item.systolic > 260 || item.diastolic < 30 || item.diastolic > 180);
   if (outOfRange) return "One of the readings is outside the allowed range. Please recheck it.";
@@ -171,7 +199,13 @@ function validateMeasurementSet(measurements) {
 }
 
 function normalizedRawReadings(reading) {
-  if (Array.isArray(reading.rawReadings) && reading.rawReadings.length) return reading.rawReadings;
+  if (Array.isArray(reading.rawReadings) && reading.rawReadings.length) {
+    return reading.rawReadings.map((item, index) => ({
+      number: item.number || index + 1,
+      systolic: Number(item.systolic),
+      diastolic: Number(item.diastolic),
+    }));
+  }
   return [{ number: 1, systolic: reading.systolic, diastolic: reading.diastolic }];
 }
 
@@ -194,6 +228,33 @@ function updateLiveAverage() {
   const average = averageMeasurementSet(measurements);
   sys.value = average.systolic;
   dia.value = average.diastolic;
+}
+
+function renderMeasurementRows(count = measurementCount, existingValues = collectMeasurementSet()) {
+  measurementCount = Math.min(MAX_MEASUREMENTS, Math.max(MIN_MEASUREMENTS, count));
+  const placeholders = [
+    { systolic: 160, diastolic: 89 },
+    { systolic: 158, diastolic: 88 },
+    { systolic: 156, diastolic: 87 },
+    { systolic: 155, diastolic: 86 },
+  ];
+
+  els.measurementRows.innerHTML = Array.from({ length: measurementCount }, (_item, index) => {
+    const number = index + 1;
+    const existing = existingValues[index] || {};
+    const placeholder = placeholders[index] || placeholders.at(-1);
+    const systolicValue = Number.isFinite(existing.systolic) ? existing.systolic : "";
+    const diastolicValue = Number.isFinite(existing.diastolic) ? existing.diastolic : "";
+    return `<div class="reading-row measurement-row">
+      <strong>${number}</strong>
+      <input data-field="systolic" name="systolic${number}" type="number" min="60" max="260" placeholder="${placeholder.systolic}" value="${systolicValue}" required />
+      <input data-field="diastolic" name="diastolic${number}" type="number" min="30" max="180" placeholder="${placeholder.diastolic}" value="${diastolicValue}" required />
+    </div>`;
+  }).join("");
+
+  $("#removeMeasurement").disabled = measurementCount <= MIN_MEASUREMENTS;
+  $("#addMeasurement").disabled = measurementCount >= MAX_MEASUREMENTS;
+  updateLiveAverage();
 }
 
 function setAlert(element, message, tone = "") {
@@ -290,20 +351,22 @@ async function saveReadingFromForm(event) {
   await putReading(reading);
   await refreshReadings();
   els.form.reset();
+  renderMeasurementRows(DEFAULT_MEASUREMENTS, []);
   setDefaultFormValues();
   updateLiveAverage();
-  setAlert(els.formAlert, `Saved average ${average.systolic}/${average.diastolic}. All three readings are stored.`, "good");
+  setAlert(els.formAlert, `Saved average ${average.systolic}/${average.diastolic}. ${rawReadings.length} reading${rawReadings.length === 1 ? "" : "s"} stored.`, "good");
   syncNow();
 }
 
 async function refreshReadings() {
-  readings = (await getAllReadings()).sort((a, b) => new Date(a.takenAt) - new Date(b.takenAt));
+  readings = (await getAllReadings()).sort(compareReadingsOldestFirst);
   renderAll();
 }
 
 function renderAll() {
   renderToday();
   renderRecentTable();
+  renderRawTable();
   renderSummary();
   renderStats();
   renderChart();
@@ -314,12 +377,12 @@ function renderToday() {
   const now = new Date();
   const today = localDateString(now);
   els.todayTitle.textContent = formatDay(now);
-  els.todaySubtitle.textContent = "Track three readings: morning, evening, and night.";
+  els.todaySubtitle.textContent = "Track morning, evening, and night sessions.";
 
   els.slotStatus.innerHTML = SLOTS.map((slot) => {
     const found = readings
       .filter((reading) => localDateString(new Date(reading.takenAt)) === today && reading.slot === slot)
-      .sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt))[0];
+      .sort(compareReadingsNewestFirst)[0];
     return `<div class="slot-chip ${found ? "done" : ""}">
       <strong>${slot}</strong>
       <span>${found ? `Avg ${found.systolic}/${found.diastolic} at ${new Date(found.takenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not added yet"}</span>
@@ -328,7 +391,7 @@ function renderToday() {
 }
 
 function renderSummary() {
-  const latest = readings.at(-1);
+  const latest = [...readings].sort(compareReadingsNewestFirst)[0];
   if (!latest) {
     els.lastCategory.textContent = "No readings yet";
     els.lastCategoryText.textContent = "A clinician should interpret patterns, especially for a 17-year-old.";
@@ -340,7 +403,7 @@ function renderSummary() {
 }
 
 function renderRecentTable() {
-  const recent = [...readings].sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt)).slice(0, 30);
+  const recent = [...readings].sort(compareReadingsNewestFirst).slice(0, 30);
   if (!recent.length) {
     els.table.innerHTML = `<tr><td colspan="6" class="empty-state">No readings saved yet.</td></tr>`;
     return;
@@ -358,6 +421,30 @@ function renderRecentTable() {
     </tr>`;
   }).join("");
   if (window.lucide) window.lucide.createIcons();
+}
+
+function renderRawTable() {
+  const newest = [...readings].sort(compareReadingsNewestFirst);
+  if (!newest.length) {
+    els.rawTable.innerHTML = `<tr><td colspan="7" class="empty-state">No raw data saved yet.</td></tr>`;
+    return;
+  }
+
+  els.rawTable.innerHTML = newest.map((reading) => {
+    const category = categoryFor(reading.systolic, reading.diastolic);
+    const rawRows = normalizedRawReadings(reading)
+      .map((item) => `<span class="raw-reading-chip">R${item.number}: ${item.systolic}/${item.diastolic}</span>`)
+      .join("");
+    return `<tr>
+      <td>${formatDateTime(reading.takenAt)}</td>
+      <td>${reading.slot}</td>
+      <td class="bp-value">${reading.systolic}/${reading.diastolic}</td>
+      <td><div class="raw-reading-list">${rawRows}</div></td>
+      <td>${reading.pulse || "-"}</td>
+      <td>${reading.notes ? escapeHtml(reading.notes) : "-"}</td>
+      <td><span class="category-badge ${category.key}">${category.label}</span></td>
+    </tr>`;
+  }).join("");
 }
 
 function renderStats() {
@@ -699,9 +786,12 @@ function setDefaultFormValues() {
 
 function wireEvents() {
   els.form.addEventListener("submit", saveReadingFromForm);
-  [1, 2, 3].forEach((number) => {
-    $(`#systolic${number}`).addEventListener("input", updateLiveAverage);
-    $(`#diastolic${number}`).addEventListener("input", updateLiveAverage);
+  els.measurementRows.addEventListener("input", updateLiveAverage);
+  $("#addMeasurement").addEventListener("click", () => {
+    renderMeasurementRows(measurementCount + 1);
+  });
+  $("#removeMeasurement").addEventListener("click", () => {
+    renderMeasurementRows(measurementCount - 1);
   });
 
   $$(".tab-button").forEach((button) => {
@@ -784,6 +874,7 @@ function wireEvents() {
 
 async function init() {
   db = await openDb();
+  renderMeasurementRows();
   setDefaultFormValues();
   wireEvents();
   initializeSupabase();
