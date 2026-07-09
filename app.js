@@ -25,7 +25,6 @@ const els = {
   form: $("#readingForm"),
   formAlert: $("#formAlert"),
   measurementRows: $("#measurementRows"),
-  table: $("#readingsTable"),
   rawTable: $("#rawTable"),
   lastCategory: $("#lastCategory"),
   lastCategoryText: $("#lastCategoryText"),
@@ -365,7 +364,6 @@ async function refreshReadings() {
 
 function renderAll() {
   renderToday();
-  renderRecentTable();
   renderRawTable();
   renderSummary();
   renderStats();
@@ -400,27 +398,6 @@ function renderSummary() {
   const category = categoryFor(latest.systolic, latest.diastolic);
   els.lastCategory.textContent = `${latest.systolic}/${latest.diastolic} - ${category.label}`;
   els.lastCategoryText.textContent = category.text;
-}
-
-function renderRecentTable() {
-  const recent = [...readings].sort(compareReadingsNewestFirst).slice(0, 30);
-  if (!recent.length) {
-    els.table.innerHTML = `<tr><td colspan="6" class="empty-state">No readings saved yet.</td></tr>`;
-    return;
-  }
-
-  els.table.innerHTML = recent.map((reading) => {
-    const category = categoryFor(reading.systolic, reading.diastolic);
-    return `<tr>
-      <td>${formatDateTime(reading.takenAt)}<br><small>${escapeHtml(rawReadingText(reading))}</small>${reading.notes ? `<br><small>${escapeHtml(reading.notes)}</small>` : ""}</td>
-      <td>${reading.slot}</td>
-      <td class="bp-value">${reading.systolic}/${reading.diastolic}<br><small>average</small></td>
-      <td>${reading.pulse || "-"}</td>
-      <td><span class="category-badge ${category.key}">${category.label}</span></td>
-      <td><button class="icon-button" type="button" data-delete="${reading.id}" aria-label="Delete reading" title="Delete reading"><i data-lucide="trash-2"></i></button></td>
-    </tr>`;
-  }).join("");
-  if (window.lucide) window.lucide.createIcons();
 }
 
 function renderRawTable() {
@@ -855,18 +832,6 @@ function wireEvents() {
   $("#exportJson").addEventListener("click", exportJson);
   $("#importJson").addEventListener("change", (event) => {
     importJson(event.target.files[0]).catch((error) => setAlert(els.settingsAlert, error.message, "bad"));
-  });
-
-  els.table.addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-delete]");
-    if (!button) return;
-    if (!confirm("Delete this reading? Keep a JSON export if you need an audit trail.")) return;
-    const id = button.dataset.delete;
-    await deleteReading(id);
-    if (supabaseClient && supabaseSession) {
-      await supabaseClient.from("bp_readings").delete().eq("id", id);
-    }
-    await refreshReadings();
   });
 
   window.addEventListener("online", syncNow);

@@ -36,13 +36,13 @@
           <i data-lucide="clipboard-plus"></i>
           Readings
         </button>
-        <button class="tab-button" type="button" data-tab="raw">
-          <i data-lucide="table-2"></i>
-          Raw Data
-        </button>
         <button class="tab-button" type="button" data-tab="graph">
           <i data-lucide="chart-no-axes-combined"></i>
           Graph
+        </button>
+        <button class="tab-button" type="button" data-tab="raw">
+          <i data-lucide="table-2"></i>
+          Raw Data
         </button>
       </nav>
 
@@ -140,33 +140,6 @@
           </form>
         </section>
 
-        <section class="recent-panel">
-          <div class="section-heading">
-            <div>
-              <p class="panel-label">Recent</p>
-              <h2>Saved readings</h2>
-            </div>
-            <button class="secondary-button" id="exportCsv" type="button">
-              <i data-lucide="download"></i>
-              CSV
-            </button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Slot</th>
-                  <th>BP</th>
-                  <th>Pulse</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="readingsTable"></tbody>
-            </table>
-          </div>
-        </section>
       </section>
 
       <section class="tab-panel" id="rawPanel">
@@ -176,6 +149,10 @@
               <p class="panel-label">Raw data</p>
               <h2>Newest sessions first</h2>
             </div>
+            <button class="secondary-button" id="exportCsv" type="button">
+              <i data-lucide="download"></i>
+              CSV
+            </button>
           </div>
           <div class="table-wrap">
             <table>
