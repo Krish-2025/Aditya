@@ -7,11 +7,15 @@ create table if not exists public.bp_readings (
   slot text not null check (slot in ('Morning', 'Evening', 'Night')),
   systolic int not null check (systolic between 60 and 260),
   diastolic int not null check (diastolic between 30 and 180),
+  raw_readings jsonb not null default '[]'::jsonb,
   pulse int check (pulse is null or pulse between 30 and 220),
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.bp_readings
+  add column if not exists raw_readings jsonb not null default '[]'::jsonb;
 
 alter table public.bp_readings enable row level security;
 

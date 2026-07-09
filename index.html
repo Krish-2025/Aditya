@@ -87,16 +87,43 @@
                 </select>
               </label>
               <label>
-                Systolic
-                <input id="systolic" name="systolic" type="number" min="60" max="260" placeholder="160" required />
-              </label>
-              <label>
-                Diastolic
-                <input id="diastolic" name="diastolic" type="number" min="30" max="180" placeholder="89" required />
-              </label>
-              <label>
                 Pulse
                 <input id="pulse" name="pulse" type="number" min="30" max="220" placeholder="Optional" />
+              </label>
+            </div>
+
+            <div class="reading-set" aria-label="Three blood pressure readings">
+              <div class="reading-set-head">
+                <span>Reading</span>
+                <span>Systolic</span>
+                <span>Diastolic</span>
+              </div>
+              <div class="reading-row">
+                <strong>1</strong>
+                <input id="systolic1" name="systolic1" type="number" min="60" max="260" placeholder="160" required />
+                <input id="diastolic1" name="diastolic1" type="number" min="30" max="180" placeholder="89" required />
+              </div>
+              <div class="reading-row">
+                <strong>2</strong>
+                <input id="systolic2" name="systolic2" type="number" min="60" max="260" placeholder="158" required />
+                <input id="diastolic2" name="diastolic2" type="number" min="30" max="180" placeholder="88" required />
+              </div>
+              <div class="reading-row">
+                <strong>3</strong>
+                <input id="systolic3" name="systolic3" type="number" min="60" max="260" placeholder="156" required />
+                <input id="diastolic3" name="diastolic3" type="number" min="30" max="180" placeholder="87" required />
+              </div>
+              <p class="helper-text">All three are saved. The session average is used for the graph and status.</p>
+            </div>
+
+            <div class="form-grid compact-grid">
+              <label>
+                Average systolic
+                <input id="averageSystolic" type="text" placeholder="Auto" readonly />
+              </label>
+              <label>
+                Average diastolic
+                <input id="averageDiastolic" type="text" placeholder="Auto" readonly />
               </label>
             </div>
             <label>

@@ -142,6 +142,60 @@ function categoryFor(systolic, diastolic) {
   };
 }
 
+function collectMeasurementSet() {
+  return [1, 2, 3].map((number) => ({
+    number,
+    systolic: Number($(`#systolic${number}`).value),
+    diastolic: Number($(`#diastolic${number}`).value),
+  }));
+}
+
+function averageMeasurementSet(measurements) {
+  const count = measurements.length;
+  return {
+    systolic: Math.round(measurements.reduce((sum, item) => sum + item.systolic, 0) / count),
+    diastolic: Math.round(measurements.reduce((sum, item) => sum + item.diastolic, 0) / count),
+  };
+}
+
+function validateMeasurementSet(measurements) {
+  if (measurements.some((item) => !Number.isFinite(item.systolic) || !Number.isFinite(item.diastolic))) {
+    return "Enter all three systolic and diastolic readings.";
+  }
+  const outOfRange = measurements.some((item) => item.systolic < 60 || item.systolic > 260 || item.diastolic < 30 || item.diastolic > 180);
+  if (outOfRange) return "One of the readings is outside the allowed range. Please recheck it.";
+  if (measurements.some((item) => item.systolic <= item.diastolic)) {
+    return "Each systolic number should usually be higher than its diastolic number. Please recheck the entries.";
+  }
+  return "";
+}
+
+function normalizedRawReadings(reading) {
+  if (Array.isArray(reading.rawReadings) && reading.rawReadings.length) return reading.rawReadings;
+  return [{ number: 1, systolic: reading.systolic, diastolic: reading.diastolic }];
+}
+
+function rawReadingText(reading) {
+  return normalizedRawReadings(reading)
+    .map((item) => `R${item.number}: ${item.systolic}/${item.diastolic}`)
+    .join(" | ");
+}
+
+function updateLiveAverage() {
+  const measurements = collectMeasurementSet();
+  const valid = !validateMeasurementSet(measurements);
+  const sys = $("#averageSystolic");
+  const dia = $("#averageDiastolic");
+  if (!valid) {
+    sys.value = "";
+    dia.value = "";
+    return;
+  }
+  const average = averageMeasurementSet(measurements);
+  sys.value = average.systolic;
+  dia.value = average.diastolic;
+}
+
 function setAlert(element, message, tone = "") {
   element.textContent = message;
   element.className = `inline-alert ${tone}`.trim();
@@ -204,26 +258,28 @@ async function saveReadingFromForm(event) {
   event.preventDefault();
   const date = $("#readingDate").value;
   const time = $("#readingTime").value;
-  const systolic = Number($("#systolic").value);
-  const diastolic = Number($("#diastolic").value);
   const pulseValue = $("#pulse").value.trim();
+  const rawReadings = collectMeasurementSet();
+  const validationError = validateMeasurementSet(rawReadings);
 
-  if (!date || !time || !Number.isFinite(systolic) || !Number.isFinite(diastolic)) {
-    setAlert(els.formAlert, "Enter date, time, and both BP numbers.", "bad");
+  if (!date || !time) {
+    setAlert(els.formAlert, "Enter date and time.", "bad");
     return;
   }
 
-  if (systolic <= diastolic) {
-    setAlert(els.formAlert, "Systolic should usually be higher than diastolic. Please recheck the numbers.", "bad");
+  if (validationError) {
+    setAlert(els.formAlert, validationError, "bad");
     return;
   }
 
+  const average = averageMeasurementSet(rawReadings);
   const reading = {
     id: uuid(),
     takenAt: new Date(`${date}T${time}`).toISOString(),
     slot: $("#readingSlot").value,
-    systolic,
-    diastolic,
+    systolic: average.systolic,
+    diastolic: average.diastolic,
+    rawReadings,
     pulse: pulseValue ? Number(pulseValue) : null,
     notes: $("#notes").value.trim(),
     syncState: "pending",
@@ -235,7 +291,8 @@ async function saveReadingFromForm(event) {
   await refreshReadings();
   els.form.reset();
   setDefaultFormValues();
-  setAlert(els.formAlert, "Saved. The graph and backup are updated.", "good");
+  updateLiveAverage();
+  setAlert(els.formAlert, `Saved average ${average.systolic}/${average.diastolic}. All three readings are stored.`, "good");
   syncNow();
 }
 
@@ -265,7 +322,7 @@ function renderToday() {
       .sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt))[0];
     return `<div class="slot-chip ${found ? "done" : ""}">
       <strong>${slot}</strong>
-      <span>${found ? `${found.systolic}/${found.diastolic} at ${new Date(found.takenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not added yet"}</span>
+      <span>${found ? `Avg ${found.systolic}/${found.diastolic} at ${new Date(found.takenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Not added yet"}</span>
     </div>`;
   }).join("");
 }
@@ -292,9 +349,9 @@ function renderRecentTable() {
   els.table.innerHTML = recent.map((reading) => {
     const category = categoryFor(reading.systolic, reading.diastolic);
     return `<tr>
-      <td>${formatDateTime(reading.takenAt)}${reading.notes ? `<br><small>${escapeHtml(reading.notes)}</small>` : ""}</td>
+      <td>${formatDateTime(reading.takenAt)}<br><small>${escapeHtml(rawReadingText(reading))}</small>${reading.notes ? `<br><small>${escapeHtml(reading.notes)}</small>` : ""}</td>
       <td>${reading.slot}</td>
-      <td class="bp-value">${reading.systolic}/${reading.diastolic}</td>
+      <td class="bp-value">${reading.systolic}/${reading.diastolic}<br><small>average</small></td>
       <td>${reading.pulse || "-"}</td>
       <td><span class="category-badge ${category.key}">${category.label}</span></td>
       <td><button class="icon-button" type="button" data-delete="${reading.id}" aria-label="Delete reading" title="Delete reading"><i data-lucide="trash-2"></i></button></td>
@@ -527,6 +584,7 @@ async function syncNow() {
       diastolic: reading.diastolic,
       pulse: reading.pulse,
       notes: reading.notes,
+      raw_readings: normalizedRawReadings(reading),
       updated_at: reading.updatedAt,
     }));
     const { error } = await supabaseClient.from("bp_readings").upsert(rows, { onConflict: "id" });
@@ -542,7 +600,7 @@ async function syncNow() {
 
   const { data, error } = await supabaseClient
     .from("bp_readings")
-    .select("id,taken_at,slot,systolic,diastolic,pulse,notes,created_at,updated_at")
+    .select("id,taken_at,slot,systolic,diastolic,pulse,notes,raw_readings,created_at,updated_at")
     .order("taken_at", { ascending: true });
   if (error) {
     setAlert(els.settingsAlert, error.message, "bad");
@@ -561,6 +619,7 @@ async function syncNow() {
         slot: row.slot,
         systolic: row.systolic,
         diastolic: row.diastolic,
+        rawReadings: row.raw_readings || [{ number: 1, systolic: row.systolic, diastolic: row.diastolic }],
         pulse: row.pulse,
         notes: row.notes || "",
         syncState: "synced",
@@ -575,12 +634,13 @@ async function syncNow() {
 }
 
 function exportCsv() {
-  const header = ["taken_at", "slot", "systolic", "diastolic", "pulse", "notes"];
+  const header = ["taken_at", "slot", "average_systolic", "average_diastolic", "raw_readings", "pulse", "notes"];
   const rows = readings.map((reading) => [
     reading.takenAt,
     reading.slot,
     reading.systolic,
     reading.diastolic,
+    rawReadingText(reading),
     reading.pulse || "",
     reading.notes || "",
   ]);
@@ -617,7 +677,11 @@ async function importJson(file) {
   if (!Array.isArray(imported)) throw new Error("Backup file does not contain readings.");
   for (const reading of imported) {
     if (reading.id && reading.takenAt && reading.systolic && reading.diastolic) {
-      await putReading({ ...reading, syncState: reading.syncState || "pending" });
+      await putReading({
+        ...reading,
+        rawReadings: normalizedRawReadings(reading),
+        syncState: reading.syncState || "pending",
+      });
     }
   }
   await refreshReadings();
@@ -630,10 +694,15 @@ function setDefaultFormValues() {
   $("#readingTime").value = localTimeString(now);
   const hour = now.getHours();
   $("#readingSlot").value = hour < 12 ? "Morning" : hour < 19 ? "Evening" : "Night";
+  updateLiveAverage();
 }
 
 function wireEvents() {
   els.form.addEventListener("submit", saveReadingFromForm);
+  [1, 2, 3].forEach((number) => {
+    $(`#systolic${number}`).addEventListener("input", updateLiveAverage);
+    $(`#diastolic${number}`).addEventListener("input", updateLiveAverage);
+  });
 
   $$(".tab-button").forEach((button) => {
     button.addEventListener("click", () => {

@@ -254,6 +254,53 @@ h3 {
   gap: 12px;
 }
 
+.compact-grid {
+  grid-template-columns: repeat(2, minmax(0, 180px));
+  margin-top: 12px;
+}
+
+.reading-set {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.reading-set-head,
+.reading-row {
+  display: grid;
+  grid-template-columns: 72px repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+}
+
+.reading-set-head {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.reading-row strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #eef5f2;
+}
+
+.helper-text {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+input[readonly] {
+  background: #eef2f0;
+  color: var(--muted);
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -570,6 +617,10 @@ svg {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .compact-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .slot-row {
     grid-template-columns: 1fr;
   }
@@ -584,6 +635,11 @@ svg {
   .form-grid,
   .tabs {
     grid-template-columns: 1fr;
+  }
+
+  .reading-set-head,
+  .reading-row {
+    grid-template-columns: 48px repeat(2, minmax(0, 1fr));
   }
 
   .button-row {
