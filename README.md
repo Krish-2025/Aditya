@@ -36,8 +36,9 @@ GitHub Pages cannot store database records by itself, so this app uses Supabase 
 2. Open the Supabase SQL editor.
 3. Run the SQL in `supabase-schema.sql`.
 4. In Supabase `Authentication > URL Configuration`, add your GitHub Pages URL to allowed redirect URLs.
-5. Open the app, click the settings button, enter the Supabase project URL and anon key, then save.
-6. Enter an email address and send the login link.
+5. In Supabase Authentication providers, keep Email enabled and allow email/password sign-ins.
+6. Open the app, click the settings button, enter the Supabase project URL and anon key, then save.
+7. Enter an email and password, then click Sign up once. After that, use Sign in.
 
 The anon key is safe to put in a static site only because row-level security is enabled in the schema.
 

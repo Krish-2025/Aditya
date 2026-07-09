@@ -34,6 +34,7 @@ const els = {
   supabaseUrl: $("#supabaseUrl"),
   supabaseKey: $("#supabaseKey"),
   loginEmail: $("#loginEmail"),
+  loginPassword: $("#loginPassword"),
   statsGrid: $("#statsGrid"),
 };
 
@@ -312,6 +313,61 @@ function updateSyncStatus(message) {
     els.syncStatus.classList.add("online");
   }
   if (window.lucide) window.lucide.createIcons();
+}
+
+function requireSupabaseAuthInput() {
+  if (!supabaseClient) {
+    setAlert(els.settingsAlert, "Save Supabase config first.", "bad");
+    return null;
+  }
+  const email = els.loginEmail.value.trim();
+  const password = els.loginPassword.value;
+  if (!email || !password) {
+    setAlert(els.settingsAlert, "Enter email and password.", "bad");
+    return null;
+  }
+  if (password.length < 6) {
+    setAlert(els.settingsAlert, "Password must be at least 6 characters.", "bad");
+    return null;
+  }
+  return { email, password };
+}
+
+async function signUpWithPassword() {
+  const input = requireSupabaseAuthInput();
+  if (!input) return;
+  const { data, error } = await supabaseClient.auth.signUp({
+    email: input.email,
+    password: input.password,
+    options: { emailRedirectTo: window.location.href.split("#")[0] },
+  });
+  if (error) {
+    setAlert(els.settingsAlert, error.message, "bad");
+    return;
+  }
+  if (data.session) {
+    supabaseSession = data.session;
+    setAlert(els.settingsAlert, "Account created and signed in. Syncing now.", "good");
+    await syncNow();
+    return;
+  }
+  setAlert(els.settingsAlert, "Account created. Check email once to confirm, then sign in with password.", "good");
+}
+
+async function signInWithPassword() {
+  const input = requireSupabaseAuthInput();
+  if (!input) return;
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: input.email,
+    password: input.password,
+  });
+  if (error) {
+    setAlert(els.settingsAlert, error.message, "bad");
+    return;
+  }
+  supabaseSession = data.session;
+  setAlert(els.settingsAlert, "Signed in. Syncing now.", "good");
+  await syncNow();
 }
 
 async function saveReadingFromForm(event) {
@@ -804,6 +860,9 @@ function wireEvents() {
     initializeSupabase();
     setAlert(els.settingsAlert, "Supabase config saved.", "good");
   });
+
+  $("#signUpPassword").addEventListener("click", signUpWithPassword);
+  $("#signInPassword").addEventListener("click", signInWithPassword);
 
   $("#sendMagicLink").addEventListener("click", async () => {
     if (!supabaseClient) {

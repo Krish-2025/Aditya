@@ -221,7 +221,7 @@
 
         <section class="settings-section">
           <h3>Supabase database</h3>
-          <p>For GitHub Pages, use Supabase as the database. Add the URL and anon key from your Supabase project, then sign in by email.</p>
+          <p>For GitHub Pages, use Supabase as the database. Add the URL and anon key from your Supabase project, then sign in with one fixed email account.</p>
           <label>
             Supabase URL
             <input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" />
@@ -244,10 +244,22 @@
             Login email
             <input id="loginEmail" type="email" placeholder="name@example.com" />
           </label>
+          <label>
+            Password
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="At least 6 characters" />
+          </label>
           <div class="button-row">
+            <button class="secondary-button" id="signUpPassword" type="button">
+              <i data-lucide="user-plus"></i>
+              Sign up
+            </button>
+            <button class="secondary-button" id="signInPassword" type="button">
+              <i data-lucide="log-in"></i>
+              Sign in
+            </button>
             <button class="secondary-button" id="sendMagicLink" type="button">
               <i data-lucide="mail"></i>
-              Send login link
+              Email link
             </button>
             <button class="secondary-button danger" id="signOut" type="button">
               <i data-lucide="log-out"></i>
