@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BP Log</title>
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%23057d8f"/><path d="M14 34h9l5-14 8 26 5-12h9" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>' />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Home blood pressure record</p>
+        <h1>BP Log</h1>
+      </div>
+      <div class="header-actions">
+        <span class="sync-pill" id="syncStatus">
+          <i data-lucide="database"></i>
+          Local only
+        </span>
+        <button class="icon-button" id="openSettings" type="button" aria-label="Data and cloud settings" title="Data and cloud settings">
+          <i data-lucide="settings"></i>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <nav class="tabs" aria-label="Primary">
+        <button class="tab-button active" type="button" data-tab="entry">
+          <i data-lucide="clipboard-plus"></i>
+          Readings
+        </button>
+        <button class="tab-button" type="button" data-tab="graph">
+          <i data-lucide="chart-no-axes-combined"></i>
+          Graph
+        </button>
+      </nav>
+
+      <section class="tab-panel active" id="entryPanel">
+        <div class="today-grid">
+          <section class="date-panel">
+            <p class="panel-label">Today</p>
+            <h2 id="todayTitle">Loading...</h2>
+            <p id="todaySubtitle"></p>
+            <div class="slot-row" id="slotStatus"></div>
+          </section>
+
+          <section class="notice-panel">
+            <div>
+              <p class="panel-label">Reference</p>
+              <h2 id="lastCategory">No readings yet</h2>
+              <p id="lastCategoryText">A clinician should interpret patterns, especially for a 17-year-old.</p>
+            </div>
+          </section>
+        </div>
+
+        <section class="form-panel">
+          <div class="section-heading">
+            <div>
+              <p class="panel-label">Add reading</p>
+              <h2>Morning, evening, or night</h2>
+            </div>
+          </div>
+
+          <form id="readingForm">
+            <div class="form-grid">
+              <label>
+                Date
+                <input id="readingDate" name="readingDate" type="date" required />
+              </label>
+              <label>
+                Time
+                <input id="readingTime" name="readingTime" type="time" required />
+              </label>
+              <label>
+                Slot
+                <select id="readingSlot" name="readingSlot" required>
+                  <option value="Morning">Morning</option>
+                  <option value="Evening">Evening</option>
+                  <option value="Night">Night</option>
+                </select>
+              </label>
+              <label>
+                Systolic
+                <input id="systolic" name="systolic" type="number" min="60" max="260" placeholder="160" required />
+              </label>
+              <label>
+                Diastolic
+                <input id="diastolic" name="diastolic" type="number" min="30" max="180" placeholder="89" required />
+              </label>
+              <label>
+                Pulse
+                <input id="pulse" name="pulse" type="number" min="30" max="220" placeholder="Optional" />
+              </label>
+            </div>
+            <label>
+              Notes
+              <textarea id="notes" name="notes" rows="3" placeholder="Medication, symptoms, exercise, stress, sleep..."></textarea>
+            </label>
+            <div class="form-actions">
+              <p class="inline-alert" id="formAlert"></p>
+              <button class="primary-button" type="submit">
+                <i data-lucide="save"></i>
+                Save reading
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section class="recent-panel">
+          <div class="section-heading">
+            <div>
+              <p class="panel-label">Recent</p>
+              <h2>Saved readings</h2>
+            </div>
+            <button class="secondary-button" id="exportCsv" type="button">
+              <i data-lucide="download"></i>
+              CSV
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Slot</th>
+                  <th>BP</th>
+                  <th>Pulse</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="readingsTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="tab-panel" id="graphPanel">
+        <section class="graph-toolbar">
+          <div>
+            <p class="panel-label">Trend</p>
+            <h2>Continuous BP graph</h2>
+          </div>
+          <div class="toolbar-actions">
+            <div class="segmented" aria-label="Visible range">
+              <button type="button" data-range="7">7D</button>
+              <button type="button" data-range="14" class="active">14D</button>
+              <button type="button" data-range="30">30D</button>
+              <button type="button" data-range="all">All</button>
+            </div>
+            <button class="icon-button" id="resetZoom" type="button" aria-label="Reset graph zoom" title="Reset graph zoom">
+              <i data-lucide="rotate-ccw"></i>
+            </button>
+          </div>
+        </section>
+
+        <section class="chart-shell">
+          <canvas id="bpChart" aria-label="Blood pressure trend chart"></canvas>
+        </section>
+
+        <section class="legend-panel">
+          <div><span class="dot systolic-dot"></span>Systolic</div>
+          <div><span class="dot diastolic-dot"></span>Diastolic</div>
+          <div><span class="line normal-line"></span>Normal below 120/80</div>
+          <div><span class="line stage-line"></span>Stage references at 130/80 and 140/90</div>
+        </section>
+
+        <section class="stats-grid" id="statsGrid"></section>
+      </section>
+    </main>
+
+    <dialog id="settingsDialog">
+      <form method="dialog" class="settings-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="panel-label">Data safety</p>
+            <h2>Local backup and cloud sync</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close settings" title="Close">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <section class="settings-section">
+          <h3>Supabase database</h3>
+          <p>For GitHub Pages, use Supabase as the database. Add the URL and anon key from your Supabase project, then sign in by email.</p>
+          <label>
+            Supabase URL
+            <input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co" />
+          </label>
+          <label>
+            Supabase anon key
+            <input id="supabaseKey" type="password" placeholder="eyJ..." />
+          </label>
+          <div class="button-row">
+            <button class="secondary-button" id="saveSupabase" type="button">
+              <i data-lucide="plug"></i>
+              Save config
+            </button>
+            <button class="secondary-button" id="syncNow" type="button">
+              <i data-lucide="refresh-cw"></i>
+              Sync now
+            </button>
+          </div>
+          <label>
+            Login email
+            <input id="loginEmail" type="email" placeholder="name@example.com" />
+          </label>
+          <div class="button-row">
+            <button class="secondary-button" id="sendMagicLink" type="button">
+              <i data-lucide="mail"></i>
+              Send login link
+            </button>
+            <button class="secondary-button danger" id="signOut" type="button">
+              <i data-lucide="log-out"></i>
+              Sign out
+            </button>
+          </div>
+          <p class="inline-alert" id="settingsAlert"></p>
+        </section>
+
+        <section class="settings-section">
+          <h3>Portable backup</h3>
+          <p>Export a JSON backup regularly. It can restore the full local database on any browser.</p>
+          <div class="button-row">
+            <button class="secondary-button" id="exportJson" type="button">
+              <i data-lucide="file-down"></i>
+              Export JSON
+            </button>
+            <label class="file-button">
+              <i data-lucide="file-up"></i>
+              Import JSON
+              <input id="importJson" type="file" accept="application/json" />
+            </label>
+          </div>
+        </section>
+      </form>
+    </dialog>
+  </body>
+</html>
