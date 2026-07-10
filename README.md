@@ -5,7 +5,8 @@ A static blood-pressure tracking app that can be published on GitHub Pages.
 ## What it does
 
 - Saves morning, evening, and night sessions in the browser using IndexedDB.
-- Automatically chooses Morning, Evening, or Night from the selected reading time and blocks future timestamps.
+- Automatically chooses Morning, Evening, or Night from the selected reading time, moves later-today times to yesterday, and blocks future timestamps.
+- Slot windows are Morning `04:00-11:59`, Evening `12:00-18:59`, and Night `19:00-03:59`.
 - Stores 1-4 BP measurements per session and uses their rounded average for charts and status labels.
 - Shows recent readings, daily completion, status labels, and a continuous pan/zoom graph.
 - Exports CSV and full JSON backups.

@@ -5,7 +5,7 @@ const CONFIG_KEY = "bp-log-supabase-config";
 const AUTH_CALLBACK_KEYS = ["code", "access_token", "refresh_token", "error", "error_code", "error_description"];
 const SLOTS = ["Morning", "Evening", "Night"];
 const SLOT_WINDOWS = [
-  { slot: "Morning", startHour: 5, endHour: 12 },
+  { slot: "Morning", startHour: 4, endHour: 12 },
   { slot: "Evening", startHour: 12, endHour: 19 },
 ];
 const DEFAULT_MEASUREMENTS = 3;
@@ -114,6 +114,10 @@ function localDateString(date = new Date()) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
+function previousLocalDateString(date = new Date()) {
+  return localDateString(new Date(date.getTime() - 24 * 60 * 60 * 1000));
+}
+
 function localTimeString(date = new Date()) {
   return date.toTimeString().slice(0, 5);
 }
@@ -145,24 +149,23 @@ function updateSlotFromTime() {
   if (!slot) return;
   $("#readingSlot").value = slot;
   if (els.slotHint) {
-    els.slotHint.textContent = `${slot} selected from ${time}. Use an earlier date/time to enter a missed reading.`;
+    els.slotHint.textContent = `${slot} selected from ${time}. If the time is later than now, the date moves to yesterday.`;
   }
 }
 
-function updateDateTimeLimits() {
+function updateDateTimeLimits({ shiftFutureTime = false } = {}) {
   const now = new Date();
   const today = localDateString(now);
+  const currentTime = localTimeString(now);
   const dateInput = $("#readingDate");
   const timeInput = $("#readingTime");
 
   dateInput.max = today;
   if (dateInput.value > today) dateInput.value = today;
 
-  if (dateInput.value === today) {
-    timeInput.max = localTimeString(now);
-    if (timeInput.value && timeInput.value > timeInput.max) timeInput.value = timeInput.max;
-  } else {
-    timeInput.removeAttribute("max");
+  timeInput.removeAttribute("max");
+  if (shiftFutureTime && dateInput.value === today && timeInput.value && timeInput.value > currentTime) {
+    dateInput.value = previousLocalDateString(now);
   }
 
   updateSlotFromTime();
@@ -960,8 +963,8 @@ function setDefaultFormValues() {
 
 function wireEvents() {
   els.form.addEventListener("submit", saveReadingFromForm);
-  $("#readingDate").addEventListener("input", updateDateTimeLimits);
-  $("#readingTime").addEventListener("input", updateDateTimeLimits);
+  $("#readingDate").addEventListener("input", () => updateDateTimeLimits());
+  $("#readingTime").addEventListener("input", () => updateDateTimeLimits({ shiftFutureTime: true }));
   els.measurementRows.addEventListener("input", updateLiveAverage);
   $("#addMeasurement").addEventListener("click", () => {
     renderMeasurementRows(measurementCount + 1);
