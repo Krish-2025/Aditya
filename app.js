@@ -2,6 +2,7 @@ const DB_NAME = "bp-log-db";
 const DB_VERSION = 1;
 const STORE_NAME = "readings";
 const CONFIG_KEY = "bp-log-supabase-config";
+const AUTH_CALLBACK_KEYS = ["code", "access_token", "refresh_token", "error", "error_code", "error_description"];
 const SLOTS = ["Morning", "Evening", "Night"];
 const DEFAULT_MEASUREMENTS = 3;
 const MIN_MEASUREMENTS = 1;
@@ -263,8 +264,19 @@ function setAlert(element, message, tone = "") {
 }
 
 function readConfig() {
+  const fileConfig = window.BP_LOG_CONFIG || {};
+  if (fileConfig.supabaseUrl && fileConfig.supabaseAnonKey) {
+    return {
+      url: fileConfig.supabaseUrl,
+      anonKey: fileConfig.supabaseAnonKey,
+      source: "file",
+    };
+  }
   try {
-    return JSON.parse(localStorage.getItem(CONFIG_KEY) || "{}");
+    return {
+      ...JSON.parse(localStorage.getItem(CONFIG_KEY) || "{}"),
+      source: "browser",
+    };
   } catch {
     return {};
   }
@@ -282,20 +294,77 @@ function initializeSupabase() {
   if (!config.url || !config.anonKey || !window.supabase) {
     supabaseClient = null;
     updateSyncStatus();
+    showAuthRedirectWithoutConfig();
     return;
   }
 
-  supabaseClient = window.supabase.createClient(config.url, config.anonKey);
-  supabaseClient.auth.getSession().then(({ data }) => {
+  supabaseClient = window.supabase.createClient(config.url, config.anonKey, {
+    auth: {
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      persistSession: true,
+    },
+  });
+  handleAuthRedirect().then(() => supabaseClient.auth.getSession()).then(({ data }) => {
     supabaseSession = data.session;
     updateSyncStatus();
     if (supabaseSession) syncNow();
+  }).catch((error) => {
+    setAlert(els.settingsAlert, error.message, "bad");
+    updateSyncStatus("Login failed");
   });
   supabaseClient.auth.onAuthStateChange((_event, session) => {
     supabaseSession = session;
     updateSyncStatus();
     if (session) syncNow();
   });
+}
+
+function currentAuthParams() {
+  const params = new URLSearchParams(window.location.search);
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+  const hashParams = new URLSearchParams(hash);
+  return { params, hashParams };
+}
+
+function hasAuthCallbackParams() {
+  const { params, hashParams } = currentAuthParams();
+  return AUTH_CALLBACK_KEYS.some((key) => params.has(key) || hashParams.has(key));
+}
+
+function cleanAuthCallbackUrl() {
+  if (!hasAuthCallbackParams()) return;
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+function showAuthRedirectWithoutConfig() {
+  if (!hasAuthCallbackParams()) return;
+  const { params, hashParams } = currentAuthParams();
+  const error = params.get("error_description") || hashParams.get("error_description");
+  if (error) {
+    setAlert(els.settingsAlert, decodeURIComponent(error.replaceAll("+", " ")), "bad");
+    return;
+  }
+  setAlert(els.settingsAlert, "Login link reached the app, but Supabase config is missing in this tab. Add URL/key or fill app-config.js.", "bad");
+}
+
+async function handleAuthRedirect() {
+  if (!supabaseClient || !hasAuthCallbackParams()) return;
+  const { params, hashParams } = currentAuthParams();
+  const error = params.get("error_description") || hashParams.get("error_description");
+  if (error) {
+    cleanAuthCallbackUrl();
+    throw new Error(decodeURIComponent(error.replaceAll("+", " ")));
+  }
+  const code = params.get("code");
+  if (code) {
+    const { error: exchangeError } = await supabaseClient.auth.exchangeCodeForSession(code);
+    cleanAuthCallbackUrl();
+    if (exchangeError) throw exchangeError;
+    setAlert(els.settingsAlert, "Login confirmed. Syncing now.", "good");
+    return;
+  }
+  setAlert(els.settingsAlert, "Login confirmed. Syncing now.", "good");
 }
 
 function updateSyncStatus(message) {

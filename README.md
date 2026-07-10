@@ -40,6 +40,10 @@ GitHub Pages cannot store database records by itself, so this app uses Supabase 
 6. Open the app, click the settings button, enter the Supabase project URL and anon key, then save.
 7. Enter an email and password, then click Sign up once. After that, use Sign in.
 
+If confirmation emails are unreliable, open Supabase `Authentication > Providers > Email` and turn off confirm-email requirements for this private family app, or create the user manually from `Authentication > Users > Add user` with auto-confirm enabled. Then use the app's Sign in button with that email and password.
+
+For the most reliable GitHub Pages login callback, fill `app-config.js` with your Supabase URL and anon key before deploying. This makes fresh login tabs initialize Supabase immediately instead of depending on browser-local settings.
+
 The anon key is safe to put in a static site only because row-level security is enabled in the schema.
 
 ## Medical note
