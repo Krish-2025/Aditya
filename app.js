@@ -118,6 +118,19 @@ function localTimeString(date = new Date()) {
   return date.toTimeString().slice(0, 5);
 }
 
+function selectedReadingDateTime() {
+  const date = $("#readingDate").value;
+  const time = $("#readingTime").value;
+  if (!date || !time) return null;
+  const selected = new Date(`${date}T${time}`);
+  return Number.isNaN(selected.getTime()) ? null : selected;
+}
+
+function isFutureReadingTime(selected = selectedReadingDateTime(), now = new Date()) {
+  if (!selected) return false;
+  return selected.getTime() > now.getTime();
+}
+
 function slotForTimeString(time) {
   const [hourText] = (time || "").split(":");
   const hour = Number(hourText);
@@ -132,16 +145,27 @@ function updateSlotFromTime() {
   if (!slot) return;
   $("#readingSlot").value = slot;
   if (els.slotHint) {
-    els.slotHint.textContent = `${slot} selected from ${time}. Change date/time for a missed reading, or change the slot manually.`;
+    els.slotHint.textContent = `${slot} selected from ${time}. Use an earlier date/time to enter a missed reading.`;
   }
 }
 
-function markSlotAsManual() {
-  const slot = $("#readingSlot").value;
-  const time = $("#readingTime").value;
-  if (els.slotHint) {
-    els.slotHint.textContent = `${slot} selected manually for ${time || "this reading"}.`;
+function updateDateTimeLimits() {
+  const now = new Date();
+  const today = localDateString(now);
+  const dateInput = $("#readingDate");
+  const timeInput = $("#readingTime");
+
+  dateInput.max = today;
+  if (dateInput.value > today) dateInput.value = today;
+
+  if (dateInput.value === today) {
+    timeInput.max = localTimeString(now);
+    if (timeInput.value && timeInput.value > timeInput.max) timeInput.value = timeInput.max;
+  } else {
+    timeInput.removeAttribute("max");
   }
+
+  updateSlotFromTime();
 }
 
 function readingTimestamp(reading) {
@@ -474,12 +498,30 @@ async function saveReadingFromForm(event) {
   event.preventDefault();
   const date = $("#readingDate").value;
   const time = $("#readingTime").value;
+  const takenAt = selectedReadingDateTime();
   const pulseValue = $("#pulse").value.trim();
+  const pulse = pulseValue ? Number(pulseValue) : null;
   const rawReadings = collectMeasurementSet();
   const validationError = validateMeasurementSet(rawReadings);
 
   if (!date || !time) {
     setAlert(els.formAlert, "Enter date and time.", "bad");
+    return;
+  }
+
+  if (!takenAt) {
+    setAlert(els.formAlert, "Enter a valid date and time.", "bad");
+    return;
+  }
+
+  if (isFutureReadingTime(takenAt)) {
+    setAlert(els.formAlert, "Future readings are not allowed. Select a past time.", "bad");
+    updateDateTimeLimits();
+    return;
+  }
+
+  if (pulseValue && (!Number.isFinite(pulse) || pulse < 30 || pulse > 220)) {
+    setAlert(els.formAlert, "Pulse must be between 30 and 220, or left blank.", "bad");
     return;
   }
 
@@ -491,12 +533,12 @@ async function saveReadingFromForm(event) {
   const average = averageMeasurementSet(rawReadings);
   const reading = {
     id: uuid(),
-    takenAt: new Date(`${date}T${time}`).toISOString(),
+    takenAt: takenAt.toISOString(),
     slot: $("#readingSlot").value,
     systolic: average.systolic,
     diastolic: average.diastolic,
     rawReadings,
-    pulse: pulseValue ? Number(pulseValue) : null,
+    pulse,
     notes: $("#notes").value.trim(),
     syncState: "pending",
     createdAt: new Date().toISOString(),
@@ -912,14 +954,14 @@ function setDefaultFormValues() {
   const now = new Date();
   $("#readingDate").value = localDateString(now);
   $("#readingTime").value = localTimeString(now);
-  updateSlotFromTime();
+  updateDateTimeLimits();
   updateLiveAverage();
 }
 
 function wireEvents() {
   els.form.addEventListener("submit", saveReadingFromForm);
-  $("#readingTime").addEventListener("input", updateSlotFromTime);
-  $("#readingSlot").addEventListener("change", markSlotAsManual);
+  $("#readingDate").addEventListener("input", updateDateTimeLimits);
+  $("#readingTime").addEventListener("input", updateDateTimeLimits);
   els.measurementRows.addEventListener("input", updateLiveAverage);
   $("#addMeasurement").addEventListener("click", () => {
     renderMeasurementRows(measurementCount + 1);

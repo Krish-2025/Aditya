@@ -317,6 +317,12 @@ input[readonly] {
   color: var(--muted);
 }
 
+select:disabled {
+  background: #eef2f0;
+  color: var(--ink);
+  opacity: 1;
+}
+
 label {
   display: grid;
   gap: 6px;
