@@ -4,6 +4,10 @@ const STORE_NAME = "readings";
 const CONFIG_KEY = "bp-log-supabase-config";
 const AUTH_CALLBACK_KEYS = ["code", "access_token", "refresh_token", "error", "error_code", "error_description"];
 const SLOTS = ["Morning", "Evening", "Night"];
+const SLOT_WINDOWS = [
+  { slot: "Morning", startHour: 5, endHour: 12 },
+  { slot: "Evening", startHour: 12, endHour: 19 },
+];
 const DEFAULT_MEASUREMENTS = 3;
 const MIN_MEASUREMENTS = 1;
 const MAX_MEASUREMENTS = 4;
@@ -26,6 +30,7 @@ const els = {
   form: $("#readingForm"),
   formAlert: $("#formAlert"),
   measurementRows: $("#measurementRows"),
+  slotHint: $("#slotHint"),
   rawTable: $("#rawTable"),
   lastCategory: $("#lastCategory"),
   lastCategoryText: $("#lastCategoryText"),
@@ -111,6 +116,32 @@ function localDateString(date = new Date()) {
 
 function localTimeString(date = new Date()) {
   return date.toTimeString().slice(0, 5);
+}
+
+function slotForTimeString(time) {
+  const [hourText] = (time || "").split(":");
+  const hour = Number(hourText);
+  if (!Number.isFinite(hour)) return "";
+  const matched = SLOT_WINDOWS.find((slotWindow) => hour >= slotWindow.startHour && hour < slotWindow.endHour);
+  return matched ? matched.slot : "Night";
+}
+
+function updateSlotFromTime() {
+  const time = $("#readingTime").value;
+  const slot = slotForTimeString(time);
+  if (!slot) return;
+  $("#readingSlot").value = slot;
+  if (els.slotHint) {
+    els.slotHint.textContent = `${slot} selected from ${time}. Change date/time for a missed reading, or change the slot manually.`;
+  }
+}
+
+function markSlotAsManual() {
+  const slot = $("#readingSlot").value;
+  const time = $("#readingTime").value;
+  if (els.slotHint) {
+    els.slotHint.textContent = `${slot} selected manually for ${time || "this reading"}.`;
+  }
 }
 
 function readingTimestamp(reading) {
@@ -881,13 +912,14 @@ function setDefaultFormValues() {
   const now = new Date();
   $("#readingDate").value = localDateString(now);
   $("#readingTime").value = localTimeString(now);
-  const hour = now.getHours();
-  $("#readingSlot").value = hour < 12 ? "Morning" : hour < 19 ? "Evening" : "Night";
+  updateSlotFromTime();
   updateLiveAverage();
 }
 
 function wireEvents() {
   els.form.addEventListener("submit", saveReadingFromForm);
+  $("#readingTime").addEventListener("input", updateSlotFromTime);
+  $("#readingSlot").addEventListener("change", markSlotAsManual);
   els.measurementRows.addEventListener("input", updateLiveAverage);
   $("#addMeasurement").addEventListener("click", () => {
     renderMeasurementRows(measurementCount + 1);
