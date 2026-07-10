@@ -114,6 +114,14 @@ function localDateString(date = new Date()) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
+function readingLocalDate(reading) {
+  return localDateString(new Date(reading.takenAt));
+}
+
+function hasReadingForDateSlot(readingList, date, slot) {
+  return readingList.some((reading) => reading.slot === slot && readingLocalDate(reading) === date);
+}
+
 function previousLocalDateString(date = new Date()) {
   return localDateString(new Date(date.getTime() - 24 * 60 * 60 * 1000));
 }
@@ -149,7 +157,11 @@ function updateSlotFromTime() {
   if (!slot) return;
   $("#readingSlot").value = slot;
   if (els.slotHint) {
-    els.slotHint.textContent = `${slot} selected from ${time}. If the time is later than now, the date moves to yesterday.`;
+    const date = $("#readingDate").value;
+    const alreadySaved = date && hasReadingForDateSlot(readings, date, slot);
+    els.slotHint.textContent = alreadySaved
+      ? `${slot} is already saved for this date. Choose another date or slot.`
+      : `${slot} selected from ${time}. If the time is later than now, the date moves to yesterday.`;
   }
 }
 
@@ -502,6 +514,7 @@ async function saveReadingFromForm(event) {
   const date = $("#readingDate").value;
   const time = $("#readingTime").value;
   const takenAt = selectedReadingDateTime();
+  const slot = $("#readingSlot").value;
   const pulseValue = $("#pulse").value.trim();
   const pulse = pulseValue ? Number(pulseValue) : null;
   const rawReadings = collectMeasurementSet();
@@ -533,11 +546,16 @@ async function saveReadingFromForm(event) {
     return;
   }
 
+  if (hasReadingForDateSlot(readings, date, slot)) {
+    setAlert(els.formAlert, `${slot} is already saved for ${formatDay(takenAt)}. Choose another date or slot.`, "bad");
+    return;
+  }
+
   const average = averageMeasurementSet(rawReadings);
   const reading = {
     id: uuid(),
     takenAt: takenAt.toISOString(),
-    slot: $("#readingSlot").value,
+    slot,
     systolic: average.systolic,
     diastolic: average.diastolic,
     rawReadings,
@@ -940,17 +958,30 @@ async function importJson(file) {
   const payload = JSON.parse(text);
   const imported = Array.isArray(payload) ? payload : payload.readings;
   if (!Array.isArray(imported)) throw new Error("Backup file does not contain readings.");
+  const importedReadings = [...readings];
+  let importedCount = 0;
+  let skippedDuplicates = 0;
   for (const reading of imported) {
     if (reading.id && reading.takenAt && reading.systolic && reading.diastolic) {
+      const slot = reading.slot || slotForTimeString(new Date(reading.takenAt).toTimeString().slice(0, 5));
+      const date = readingLocalDate(reading);
+      if (slot && hasReadingForDateSlot(importedReadings, date, slot)) {
+        skippedDuplicates += 1;
+        continue;
+      }
       await putReading({
         ...reading,
         rawReadings: normalizedRawReadings(reading),
         syncState: reading.syncState || "pending",
+        slot,
       });
+      importedReadings.push({ ...reading, slot });
+      importedCount += 1;
     }
   }
   await refreshReadings();
-  setAlert(els.settingsAlert, `Imported ${imported.length} readings.`, "good");
+  const duplicateNote = skippedDuplicates ? ` Skipped ${skippedDuplicates} duplicate date/slot reading${skippedDuplicates === 1 ? "" : "s"}.` : "";
+  setAlert(els.settingsAlert, `Imported ${importedCount} reading${importedCount === 1 ? "" : "s"}.${duplicateNote}`, "good");
 }
 
 function setDefaultFormValues() {
