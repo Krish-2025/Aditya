@@ -12,6 +12,7 @@ const SLOT_WINDOWS = [
 const DEFAULT_MEASUREMENTS = 3;
 const MIN_MEASUREMENTS = 1;
 const MAX_MEASUREMENTS = 4;
+const LIVE_BG_FRAME_INTERVAL = 1000 / 30;
 
 let db;
 let readings = [];
@@ -372,6 +373,140 @@ function writeLocalFlag(key, value) {
     localStorage.setItem(key, value);
   } catch {
     // Private or restricted browsers can block localStorage; the app still works without remembering this preference.
+  }
+}
+
+function initLiveBackground() {
+  const canvas = $("#liveBackground");
+  if (!canvas) return;
+
+  const context = canvas.getContext("2d", { alpha: true });
+  if (!context) return;
+
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let animationFrame = null;
+  let lastFrame = 0;
+  let width = 0;
+  let height = 0;
+  let pixelRatio = 1;
+
+  const resize = () => {
+    pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.max(1, Math.round(width * pixelRatio));
+    canvas.height = Math.max(1, Math.round(height * pixelRatio));
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  };
+
+  const pulseWave = (x, time, rowOffset) => {
+    const cycle = (((x + rowOffset + time * 0.018) / 220) % 1 + 1) % 1;
+    const gaussian = (center, widthValue, heightValue) => heightValue * Math.exp(-((cycle - center) ** 2) / (2 * widthValue ** 2));
+    return (
+      Math.sin(x * 0.012 + time * 0.001 + rowOffset) * 2.8 +
+      gaussian(0.18, 0.045, 5) -
+      gaussian(0.42, 0.012, 9) +
+      gaussian(0.45, 0.009, 34) -
+      gaussian(0.49, 0.015, 13) +
+      gaussian(0.73, 0.06, 8)
+    );
+  };
+
+  const drawGrid = (time) => {
+    const spacing = width < 560 ? 42 : 56;
+    const offset = reducedMotion.matches ? 0 : (time * 0.008) % spacing;
+    context.save();
+    context.lineWidth = 1;
+    context.strokeStyle = "rgba(8, 125, 145, 0.045)";
+    for (let x = -spacing + offset; x < width + spacing; x += spacing) {
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x, height);
+      context.stroke();
+    }
+    context.strokeStyle = "rgba(45, 100, 179, 0.035)";
+    for (let y = 0; y < height + spacing; y += spacing) {
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(width, y);
+      context.stroke();
+    }
+    context.restore();
+  };
+
+  const drawWave = (time, yBase, color, rowOffset, alpha) => {
+    context.save();
+    context.lineWidth = width < 560 ? 1.35 : 1.6;
+    context.strokeStyle = color;
+    context.globalAlpha = alpha;
+    context.shadowColor = color;
+    context.shadowBlur = 8;
+    context.beginPath();
+    for (let x = -8; x <= width + 8; x += 8) {
+      const y = yBase - pulseWave(x, time, rowOffset);
+      if (x === -8) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    }
+    context.stroke();
+    context.restore();
+  };
+
+  const draw = (time = 0) => {
+    context.clearRect(0, 0, width, height);
+    drawGrid(time);
+    drawWave(time, Math.max(110, height * 0.24), "rgba(8, 125, 145, 0.22)", 0, 1);
+    drawWave(time + 850, Math.max(230, height * 0.58), "rgba(200, 70, 77, 0.13)", 78, 1);
+  };
+
+  const animate = (time) => {
+    if (document.hidden || reducedMotion.matches) {
+      animationFrame = null;
+      return;
+    }
+    if (time - lastFrame >= LIVE_BG_FRAME_INTERVAL) {
+      draw(time);
+      lastFrame = time;
+    }
+    animationFrame = requestAnimationFrame(animate);
+  };
+
+  const start = () => {
+    if (animationFrame || reducedMotion.matches || document.hidden) return;
+    animationFrame = requestAnimationFrame(animate);
+  };
+
+  const stop = () => {
+    if (!animationFrame) return;
+    cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+  };
+
+  const handleMotionPreference = () => {
+    stop();
+    draw(0);
+    start();
+  };
+
+  resize();
+  draw(0);
+  start();
+
+  window.addEventListener("resize", () => {
+    resize();
+    draw(0);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stop();
+    else {
+      draw(0);
+      start();
+    }
+  });
+
+  if (reducedMotion.addEventListener) {
+    reducedMotion.addEventListener("change", handleMotionPreference);
+  } else if (reducedMotion.addListener) {
+    reducedMotion.addListener(handleMotionPreference);
   }
 }
 
@@ -1179,6 +1314,7 @@ function wireEvents() {
 }
 
 async function init() {
+  initLiveBackground();
   db = await openDb();
   renderMeasurementRows();
   setDefaultFormValues();
