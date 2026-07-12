@@ -2,9 +2,9 @@
   --bg: #eef5f2;
   --ink: #10211d;
   --muted: #5c6f69;
-  --panel: rgba(255, 255, 255, 0.88);
-  --panel-strong: #ffffff;
-  --line: #d5e3df;
+  --panel: rgba(255, 255, 255, 0.66);
+  --panel-strong: rgba(255, 255, 255, 0.76);
+  --line: rgba(191, 211, 205, 0.82);
   --soft-line: rgba(118, 145, 136, 0.2);
   --green: #16845a;
   --teal: #087d91;
@@ -25,7 +25,9 @@ body {
   min-height: 100svh;
   overflow-x: hidden;
   background:
-    linear-gradient(180deg, rgba(248, 252, 250, 0.96) 0%, rgba(237, 247, 243, 0.96) 44%, rgba(243, 248, 247, 0.98) 100%),
+    linear-gradient(180deg, rgba(248, 252, 250, 0.88) 0%, rgba(237, 247, 243, 0.88) 44%, rgba(243, 248, 247, 0.92) 100%),
+    repeating-linear-gradient(90deg, rgba(8, 125, 145, 0.055) 0 1px, transparent 1px 56px),
+    repeating-linear-gradient(0deg, rgba(45, 100, 179, 0.04) 0 1px, transparent 1px 56px),
     var(--bg);
   color: var(--ink);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -38,7 +40,92 @@ body {
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  opacity: 0.78;
+  opacity: 1;
+}
+
+.save-ripple {
+  position: fixed;
+  left: var(--ripple-x, 50vw);
+  top: var(--ripple-y, 60vh);
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(8, 125, 145, 0.58);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.72),
+    0 0 42px rgba(8, 125, 145, 0.24),
+    inset 0 0 28px rgba(255, 255, 255, 0.42);
+  mix-blend-mode: multiply;
+}
+
+.save-ripple::before,
+.save-ripple::after {
+  content: "";
+  position: absolute;
+  inset: -42px;
+  border-radius: 50%;
+  border: 2px solid rgba(200, 70, 77, 0.2);
+}
+
+.save-ripple::after {
+  inset: -82px;
+  border-color: rgba(8, 125, 145, 0.18);
+}
+
+.save-ripple.active {
+  animation: save-ripple-wave 1280ms ease-out both;
+}
+
+.save-ripple.active::before {
+  animation: save-ripple-inner 1280ms ease-out both;
+}
+
+.save-ripple.active::after {
+  animation: save-ripple-outer 1280ms ease-out both;
+}
+
+@keyframes save-ripple-wave {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.12);
+  }
+
+  18% {
+    opacity: 0.78;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(70);
+  }
+}
+
+@keyframes save-ripple-inner {
+  0% {
+    opacity: 0.2;
+    transform: scale(0.45);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+@keyframes save-ripple-outer {
+  0% {
+    opacity: 0.16;
+    transform: scale(0.25);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
 }
 
 button,
@@ -129,13 +216,13 @@ h3 {
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.58);
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 700;
   white-space: nowrap;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(8px);
 }
 
 .sync-pill.online {
@@ -152,11 +239,11 @@ h3 {
   gap: 8px;
   margin: 8px 0 14px;
   padding: 6px;
-  border: 1px solid rgba(203, 219, 214, 0.88);
+  border: 1px solid rgba(181, 207, 201, 0.68);
   border-radius: 8px;
-  background: rgba(232, 241, 238, 0.76);
+  background: rgba(232, 241, 238, 0.34);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), var(--shadow-soft);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(8px);
 }
 
 .tab-button,
@@ -213,7 +300,7 @@ h3 {
   border-radius: 8px;
   background: var(--panel);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(8px);
 }
 
 .date-panel,
@@ -252,7 +339,7 @@ h3 {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(248, 251, 250, 0.82);
+  background: rgba(248, 251, 250, 0.62);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
 
@@ -268,7 +355,7 @@ h3 {
 
 .slot-chip.done {
   border-color: rgba(31, 138, 91, 0.35);
-  background: rgba(234, 249, 241, 0.9);
+  background: rgba(234, 249, 241, 0.7);
 }
 
 .form-panel,
@@ -347,12 +434,12 @@ button:disabled {
 }
 
 input[readonly] {
-  background: #edf3f1;
+  background: rgba(237, 243, 241, 0.74);
   color: var(--muted);
 }
 
 select:disabled {
-  background: #edf3f1;
+  background: rgba(237, 243, 241, 0.74);
   color: var(--ink);
   opacity: 1;
 }
@@ -372,7 +459,7 @@ textarea {
   min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: rgba(253, 255, 254, 0.92);
+  background: rgba(253, 255, 254, 0.7);
   color: var(--ink);
   padding: 10px 12px;
   outline: none;
@@ -435,7 +522,7 @@ textarea:focus {
 .file-button,
 .icon-button {
   border: 1px solid var(--line);
-  background: rgba(253, 255, 254, 0.88);
+  background: rgba(253, 255, 254, 0.64);
   color: var(--ink);
   padding: 0 12px;
   box-shadow: var(--shadow-soft);
@@ -462,7 +549,7 @@ textarea:focus {
   overflow-x: auto;
   border: 1px solid var(--soft-line);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.42);
 }
 
 table {
@@ -511,7 +598,7 @@ tbody tr:hover {
   min-height: 28px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(244, 250, 247, 0.9);
+  background: rgba(244, 250, 247, 0.72);
   color: #32443d;
   padding: 0 10px;
   font-size: 0.82rem;
@@ -567,7 +654,7 @@ tbody tr:hover {
   gap: 12px;
   border: 1px solid rgba(5, 125, 143, 0.28);
   border-radius: 8px;
-  background: rgba(237, 248, 250, 0.9);
+  background: rgba(237, 248, 250, 0.74);
   color: #175b66;
   padding: 12px 14px;
   font-weight: 800;
@@ -600,7 +687,7 @@ tbody tr:hover {
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(237, 244, 241, 0.86);
+  background: rgba(237, 244, 241, 0.44);
 }
 
 .segmented button {
@@ -612,7 +699,7 @@ tbody tr:hover {
   min-height: 360px;
   padding: 14px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 252, 250, 0.84)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(248, 252, 250, 0.58)),
     repeating-linear-gradient(90deg, transparent 0 54px, rgba(8, 125, 145, 0.05) 54px 55px);
 }
 
@@ -696,10 +783,10 @@ dialog::backdrop {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.86);
   padding: 18px;
   box-shadow: 0 24px 80px rgba(15, 25, 22, 0.22);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(8px);
 }
 
 .settings-section {
@@ -760,11 +847,47 @@ svg {
   .slot-row {
     grid-template-columns: 1fr;
   }
+
+  .sync-pill,
+  .tabs,
+  .date-panel,
+  .notice-panel,
+  .form-panel,
+  .raw-panel,
+  .graph-toolbar,
+  .chart-shell,
+  .legend-panel,
+  .settings-section,
+  .stat-card,
+  .settings-form {
+    backdrop-filter: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .sync-pill,
+  .tabs,
+  .date-panel,
+  .notice-panel,
+  .form-panel,
+  .raw-panel,
+  .graph-toolbar,
+  .chart-shell,
+  .legend-panel,
+  .settings-section,
+  .stat-card,
+  .settings-form {
+    backdrop-filter: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .live-background {
     opacity: 0.42;
+  }
+
+  .save-ripple {
+    display: none;
   }
 
   .tab-button,

@@ -12,7 +12,8 @@ const SLOT_WINDOWS = [
 const DEFAULT_MEASUREMENTS = 3;
 const MIN_MEASUREMENTS = 1;
 const MAX_MEASUREMENTS = 4;
-const LIVE_BG_FRAME_INTERVAL = 1000 / 30;
+const LIVE_BG_FRAME_INTERVAL = 1000 / 20;
+const LIVE_BG_RIPPLE_DURATION = 1600;
 
 let db;
 let readings = [];
@@ -21,6 +22,7 @@ let supabaseClient = null;
 let supabaseSession = null;
 let chartPluginsRegistered = false;
 let measurementCount = DEFAULT_MEASUREMENTS;
+let triggerLiveBackgroundWave = () => {};
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -46,6 +48,7 @@ const els = {
   statsGrid: $("#statsGrid"),
   graphOrientationHint: $("#graphOrientationHint"),
   graphOrientationMessage: $("#graphOrientationMessage"),
+  saveRipple: $("#saveRipple"),
 };
 
 function openDb() {
@@ -376,6 +379,19 @@ function writeLocalFlag(key, value) {
   }
 }
 
+function triggerSaveRippleOverlay(sourceElement) {
+  if (!els.saveRipple || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const sourceRect = sourceElement?.getBoundingClientRect();
+  const x = sourceRect ? sourceRect.left + sourceRect.width / 2 : window.innerWidth / 2;
+  const y = sourceRect ? sourceRect.top + sourceRect.height / 2 : window.innerHeight * 0.62;
+  els.saveRipple.style.setProperty("--ripple-x", `${Math.min(window.innerWidth - 24, Math.max(24, x))}px`);
+  els.saveRipple.style.setProperty("--ripple-y", `${Math.min(window.innerHeight - 24, Math.max(24, y))}px`);
+  els.saveRipple.classList.remove("active");
+  void els.saveRipple.offsetWidth;
+  els.saveRipple.classList.add("active");
+  window.setTimeout(() => els.saveRipple?.classList.remove("active"), 1320);
+}
+
 function initLiveBackground() {
   const canvas = $("#liveBackground");
   if (!canvas) return;
@@ -389,11 +405,15 @@ function initLiveBackground() {
   let width = 0;
   let height = 0;
   let pixelRatio = 1;
+  let ripple = null;
+
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
   const resize = () => {
-    pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
     width = window.innerWidth;
     height = window.innerHeight;
+    const maxPixelRatio = width < 720 ? 1.35 : 1.6;
+    pixelRatio = Math.min(window.devicePixelRatio || 1, maxPixelRatio);
     canvas.width = Math.max(1, Math.round(width * pixelRatio));
     canvas.height = Math.max(1, Math.round(height * pixelRatio));
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
@@ -412,23 +432,63 @@ function initLiveBackground() {
     );
   };
 
-  const drawGrid = (time) => {
-    const spacing = width < 560 ? 42 : 56;
-    const offset = reducedMotion.matches ? 0 : (time * 0.008) % spacing;
-    context.save();
-    context.lineWidth = 1;
-    context.strokeStyle = "rgba(8, 125, 145, 0.045)";
-    for (let x = -spacing + offset; x < width + spacing; x += spacing) {
-      context.beginPath();
-      context.moveTo(x, 0);
-      context.lineTo(x, height);
-      context.stroke();
+  const rippleProgress = (time) => {
+    if (!ripple) return null;
+    const elapsed = time - ripple.startedAt;
+    if (elapsed >= LIVE_BG_RIPPLE_DURATION) {
+      ripple = null;
+      return null;
     }
-    context.strokeStyle = "rgba(45, 100, 179, 0.035)";
-    for (let y = 0; y < height + spacing; y += spacing) {
+    return {
+      elapsed,
+      progress: Math.max(0, Math.min(1, elapsed / LIVE_BG_RIPPLE_DURATION)),
+    };
+  };
+
+  const rippleDisplacement = (x, y, time) => {
+    const state = rippleProgress(time);
+    if (!state || !ripple) return 0;
+    const maxRadius = Math.hypot(width, height) * 1.08;
+    const radius = state.progress * maxRadius;
+    const distance = Math.hypot(x - ripple.x, y - ripple.y);
+    const bandWidth = width < 560 ? 48 : 64;
+    const band = Math.exp(-((distance - radius) ** 2) / (2 * bandWidth ** 2));
+    const fade = (1 - state.progress) ** 1.35;
+    return Math.sin((distance - radius) * 0.075 - state.elapsed * 0.018) * band * fade * (width < 560 ? 18 : 24);
+  };
+
+  const drawRipple = (time) => {
+    const state = rippleProgress(time);
+    if (!state || !ripple) return;
+
+    const maxRadius = Math.hypot(width, height) * 1.08;
+    const radius = state.progress * maxRadius;
+    const fade = (1 - state.progress) ** 1.2;
+    const rings = width < 560 ? 2 : 3;
+
+    context.save();
+    context.shadowColor = "rgba(8, 125, 145, 0.28)";
+    context.shadowBlur = width < 720 ? 0 : 14;
+    for (let index = 0; index < rings; index += 1) {
+      const ringRadius = radius - index * (width < 560 ? 54 : 72);
+      if (ringRadius <= 0) continue;
+
+      if (index === 0) {
+        const glow = context.createRadialGradient(ripple.x, ripple.y, Math.max(0, ringRadius - 42), ripple.x, ripple.y, ringRadius + 42);
+        glow.addColorStop(0, "rgba(8, 125, 145, 0)");
+        glow.addColorStop(0.45, `rgba(8, 125, 145, ${fade * 0.08})`);
+        glow.addColorStop(0.72, `rgba(255, 255, 255, ${fade * 0.16})`);
+        glow.addColorStop(1, "rgba(8, 125, 145, 0)");
+        context.fillStyle = glow;
+        context.beginPath();
+        context.arc(ripple.x, ripple.y, ringRadius + 46, 0, Math.PI * 2);
+        context.fill();
+      }
+
       context.beginPath();
-      context.moveTo(0, y);
-      context.lineTo(width, y);
+      context.arc(ripple.x, ripple.y, ringRadius, 0, Math.PI * 2);
+      context.lineWidth = Math.max(1.4, (width < 560 ? 4.4 : 5.4) - index * 0.85);
+      context.strokeStyle = `rgba(${index === 0 ? "8, 125, 145" : "200, 70, 77"}, ${Math.max(0, fade * (0.58 - index * 0.12))})`;
       context.stroke();
     }
     context.restore();
@@ -436,15 +496,16 @@ function initLiveBackground() {
 
   const drawWave = (time, yBase, color, rowOffset, alpha) => {
     context.save();
-    context.lineWidth = width < 560 ? 1.35 : 1.6;
+    const pointStep = width < 560 ? 12 : 10;
+    context.lineWidth = width < 560 ? 2 : 2.35;
     context.strokeStyle = color;
     context.globalAlpha = alpha;
-    context.shadowColor = color;
-    context.shadowBlur = 8;
+    context.shadowColor = width < 720 ? "transparent" : color;
+    context.shadowBlur = width < 720 ? 0 : 8;
     context.beginPath();
-    for (let x = -8; x <= width + 8; x += 8) {
-      const y = yBase - pulseWave(x, time, rowOffset);
-      if (x === -8) context.moveTo(x, y);
+    for (let x = -pointStep; x <= width + pointStep; x += pointStep) {
+      const y = yBase - pulseWave(x, time, rowOffset) + rippleDisplacement(x, yBase, time);
+      if (x === -pointStep) context.moveTo(x, y);
       else context.lineTo(x, y);
     }
     context.stroke();
@@ -452,10 +513,12 @@ function initLiveBackground() {
   };
 
   const draw = (time = 0) => {
+    const primaryY = width < 560 ? Math.min(height - 180, Math.max(270, height * 0.36)) : Math.max(170, height * 0.24);
+    const secondaryY = width < 560 ? Math.min(height - 80, Math.max(560, height * 0.72)) : Math.max(360, height * 0.46);
     context.clearRect(0, 0, width, height);
-    drawGrid(time);
-    drawWave(time, Math.max(110, height * 0.24), "rgba(8, 125, 145, 0.22)", 0, 1);
-    drawWave(time + 850, Math.max(230, height * 0.58), "rgba(200, 70, 77, 0.13)", 78, 1);
+    drawWave(time, primaryY, "rgba(8, 125, 145, 0.5)", 0, 1);
+    drawWave(time + 850, secondaryY, "rgba(200, 70, 77, 0.38)", 78, 1);
+    drawRipple(time);
   };
 
   const animate = (time) => {
@@ -466,6 +529,9 @@ function initLiveBackground() {
     if (time - lastFrame >= LIVE_BG_FRAME_INTERVAL) {
       draw(time);
       lastFrame = time;
+    }
+    if (!ripple && time - lastFrame > LIVE_BG_FRAME_INTERVAL * 2) {
+      draw(time);
     }
     animationFrame = requestAnimationFrame(animate);
   };
@@ -483,7 +549,22 @@ function initLiveBackground() {
 
   const handleMotionPreference = () => {
     stop();
+    ripple = null;
     draw(0);
+    start();
+  };
+
+  triggerLiveBackgroundWave = (sourceElement) => {
+    if (reducedMotion.matches || document.hidden) return;
+    const sourceRect = sourceElement?.getBoundingClientRect();
+    const sourceX = sourceRect ? sourceRect.left + sourceRect.width / 2 : width / 2;
+    const sourceY = sourceRect ? sourceRect.top + sourceRect.height / 2 : height * 0.58;
+    ripple = {
+      startedAt: performance.now(),
+      x: clamp(sourceX, width * 0.18, width * 0.82),
+      y: clamp(sourceY, height * 0.22, height * 0.78),
+    };
+    draw(ripple.startedAt);
     start();
   };
 
@@ -493,6 +574,7 @@ function initLiveBackground() {
 
   window.addEventListener("resize", () => {
     resize();
+    ripple = null;
     draw(0);
   });
   document.addEventListener("visibilitychange", () => {
@@ -727,6 +809,9 @@ async function saveReadingFromForm(event) {
   setDefaultFormValues();
   updateLiveAverage();
   setAlert(els.formAlert, `Saved average ${average.systolic}/${average.diastolic}. ${rawReadings.length} reading${rawReadings.length === 1 ? "" : "s"} stored.`, "good");
+  const saveButton = event.submitter || els.form.querySelector(".primary-button");
+  triggerSaveRippleOverlay(saveButton);
+  triggerLiveBackgroundWave(saveButton);
   syncNow();
 }
 
