@@ -698,9 +698,7 @@ tbody tr:hover {
   height: min(64vh, 560px);
   min-height: 360px;
   padding: 14px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 252, 250, 0.72)),
-    repeating-linear-gradient(90deg, transparent 0 54px, rgba(8, 125, 145, 0.05) 54px 55px);
+  background: #ffffff;
 }
 
 #bpChart {
