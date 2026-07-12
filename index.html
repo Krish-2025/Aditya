@@ -194,6 +194,22 @@
           </div>
         </section>
 
+        <section class="orientation-hint" id="graphOrientationHint" hidden>
+          <div class="orientation-copy">
+            <i data-lucide="smartphone"></i>
+            <span id="graphOrientationMessage">Rotate phone sideways for a wider graph.</span>
+          </div>
+          <div class="orientation-actions">
+            <button class="secondary-button" id="tryLandscape" type="button">
+              <i data-lucide="rotate-cw"></i>
+              Try landscape
+            </button>
+            <button class="icon-button" id="dismissLandscapeHint" type="button" aria-label="Dismiss landscape suggestion" title="Dismiss">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+        </section>
+
         <section class="chart-shell">
           <canvas id="bpChart" aria-label="Blood pressure trend chart"></canvas>
         </section>

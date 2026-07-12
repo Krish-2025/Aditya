@@ -2,6 +2,7 @@ const DB_NAME = "bp-log-db";
 const DB_VERSION = 1;
 const STORE_NAME = "readings";
 const CONFIG_KEY = "bp-log-supabase-config";
+const GRAPH_ORIENTATION_DISMISSED_KEY = "bp-log-graph-orientation-dismissed";
 const AUTH_CALLBACK_KEYS = ["code", "access_token", "refresh_token", "error", "error_code", "error_description"];
 const SLOTS = ["Morning", "Evening", "Night"];
 const SLOT_WINDOWS = [
@@ -42,6 +43,8 @@ const els = {
   loginEmail: $("#loginEmail"),
   loginPassword: $("#loginPassword"),
   statsGrid: $("#statsGrid"),
+  graphOrientationHint: $("#graphOrientationHint"),
+  graphOrientationMessage: $("#graphOrientationMessage"),
 };
 
 function openDb() {
@@ -354,6 +357,22 @@ function readConfig() {
 
 function saveConfig(config) {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+}
+
+function readLocalFlag(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalFlag(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Private or restricted browsers can block localStorage; the app still works without remembering this preference.
+  }
 }
 
 function initializeSupabase() {
@@ -820,6 +839,66 @@ function renderChart(range = getActiveRange()) {
   });
 }
 
+function activeTabName() {
+  return $(".tab-button.active")?.dataset.tab || "entry";
+}
+
+function isSmallPortraitScreen() {
+  return window.matchMedia("(max-width: 720px) and (orientation: portrait)").matches;
+}
+
+function setGraphOrientationMessage(message) {
+  if (els.graphOrientationMessage) els.graphOrientationMessage.textContent = message;
+}
+
+function updateGraphOrientationHint({ force = false } = {}) {
+  if (!els.graphOrientationHint) return;
+  const dismissed = readLocalFlag(GRAPH_ORIENTATION_DISMISSED_KEY) === "1";
+  const shouldShow = activeTabName() === "graph" && isSmallPortraitScreen() && (force || !dismissed);
+  els.graphOrientationHint.hidden = !shouldShow;
+  if (shouldShow && !els.graphOrientationMessage.textContent) {
+    setGraphOrientationMessage("Rotate phone sideways for a wider graph.");
+  }
+}
+
+function scheduleChartResize() {
+  if (!chart) return;
+  requestAnimationFrame(() => {
+    chart.resize();
+    setTimeout(() => chart?.resize(), 250);
+  });
+}
+
+async function requestLandscapeMode() {
+  setGraphOrientationMessage("Asking the browser for landscape...");
+  updateGraphOrientationHint({ force: true });
+
+  if (!screen.orientation?.lock) {
+    setGraphOrientationMessage("Turn your phone sideways for the wider graph.");
+    return;
+  }
+
+  try {
+    await screen.orientation.lock("landscape");
+    setGraphOrientationMessage("Landscape requested.");
+    scheduleChartResize();
+    return;
+  } catch {
+    // Android Chrome often allows orientation lock only after entering fullscreen.
+  }
+
+  try {
+    if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+      await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+    }
+    await screen.orientation.lock("landscape");
+    setGraphOrientationMessage("Landscape requested.");
+    scheduleChartResize();
+  } catch {
+    setGraphOrientationMessage("Turn your phone sideways for the wider graph.");
+  }
+}
+
 function registerChartPlugins() {
   if (chartPluginsRegistered) return;
   const plugins = [baselinePlugin];
@@ -948,8 +1027,13 @@ function downloadFile(filename, content, type) {
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    link.remove();
+  }, 0);
 }
 
 async function importJson(file) {
@@ -1010,7 +1094,12 @@ function wireEvents() {
       $$(".tab-panel").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
       $(`#${button.dataset.tab}Panel`).classList.add("active");
-      if (button.dataset.tab === "graph" && chart) chart.resize();
+      if (button.dataset.tab === "graph") {
+        updateGraphOrientationHint();
+        scheduleChartResize();
+      } else {
+        updateGraphOrientationHint();
+      }
     });
   });
 
@@ -1023,8 +1112,14 @@ function wireEvents() {
   });
 
   $("#resetZoom").addEventListener("click", () => {
-    if (chart) chart.resetZoom();
+    if (chart?.resetZoom) chart.resetZoom();
     renderChart();
+  });
+
+  $("#tryLandscape").addEventListener("click", requestLandscapeMode);
+  $("#dismissLandscapeHint").addEventListener("click", () => {
+    writeLocalFlag(GRAPH_ORIENTATION_DISMISSED_KEY, "1");
+    updateGraphOrientationHint();
   });
 
   $("#openSettings").addEventListener("click", () => els.settingsDialog.showModal());
@@ -1071,6 +1166,16 @@ function wireEvents() {
   });
 
   window.addEventListener("online", syncNow);
+  window.addEventListener("resize", () => {
+    updateGraphOrientationHint();
+    if (activeTabName() === "graph") scheduleChartResize();
+  });
+  window.addEventListener("orientationchange", () => {
+    setTimeout(() => {
+      updateGraphOrientationHint();
+      if (activeTabName() === "graph") scheduleChartResize();
+    }, 250);
+  });
 }
 
 async function init() {
