@@ -420,10 +420,10 @@ function initLiveBackground() {
   };
 
   const pulseWave = (x, time, rowOffset) => {
-    const cycle = (((x + rowOffset + time * 0.018) / 220) % 1 + 1) % 1;
+    const cycle = (((x + rowOffset + time * 0.0075) / 220) % 1 + 1) % 1;
     const gaussian = (center, widthValue, heightValue) => heightValue * Math.exp(-((cycle - center) ** 2) / (2 * widthValue ** 2));
     return (
-      Math.sin(x * 0.012 + time * 0.001 + rowOffset) * 2.8 +
+      Math.sin(x * 0.012 + time * 0.00045 + rowOffset) * 2.8 +
       gaussian(0.18, 0.045, 5) -
       gaussian(0.42, 0.012, 9) +
       gaussian(0.45, 0.009, 34) -
@@ -516,8 +516,8 @@ function initLiveBackground() {
     const primaryY = width < 560 ? Math.min(height - 180, Math.max(270, height * 0.36)) : Math.max(170, height * 0.24);
     const secondaryY = width < 560 ? Math.min(height - 80, Math.max(560, height * 0.72)) : Math.max(360, height * 0.46);
     context.clearRect(0, 0, width, height);
-    drawWave(time, primaryY, "rgba(8, 125, 145, 0.5)", 0, 1);
-    drawWave(time + 850, secondaryY, "rgba(200, 70, 77, 0.38)", 78, 1);
+    drawWave(time, primaryY, "rgba(8, 125, 145, 0.36)", 0, 1);
+    drawWave(time + 850, secondaryY, "rgba(200, 70, 77, 0.26)", 78, 1);
     drawRipple(time);
   };
 

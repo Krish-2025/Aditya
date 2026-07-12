@@ -2,8 +2,8 @@
   --bg: #eef5f2;
   --ink: #10211d;
   --muted: #5c6f69;
-  --panel: rgba(255, 255, 255, 0.66);
-  --panel-strong: rgba(255, 255, 255, 0.76);
+  --panel: rgba(255, 255, 255, 0.78);
+  --panel-strong: rgba(255, 255, 255, 0.88);
   --line: rgba(191, 211, 205, 0.82);
   --soft-line: rgba(118, 145, 136, 0.2);
   --green: #16845a;
@@ -216,7 +216,7 @@ h3 {
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.72);
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 700;
@@ -241,7 +241,7 @@ h3 {
   padding: 6px;
   border: 1px solid rgba(181, 207, 201, 0.68);
   border-radius: 8px;
-  background: rgba(232, 241, 238, 0.34);
+  background: rgba(232, 241, 238, 0.58);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), var(--shadow-soft);
   backdrop-filter: blur(8px);
 }
@@ -459,7 +459,7 @@ textarea {
   min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: rgba(253, 255, 254, 0.7);
+  background: rgba(253, 255, 254, 0.8);
   color: var(--ink);
   padding: 10px 12px;
   outline: none;
@@ -522,7 +522,7 @@ textarea:focus {
 .file-button,
 .icon-button {
   border: 1px solid var(--line);
-  background: rgba(253, 255, 254, 0.64);
+  background: rgba(253, 255, 254, 0.76);
   color: var(--ink);
   padding: 0 12px;
   box-shadow: var(--shadow-soft);
@@ -687,7 +687,7 @@ tbody tr:hover {
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(237, 244, 241, 0.44);
+  background: rgba(237, 244, 241, 0.62);
 }
 
 .segmented button {
@@ -699,7 +699,7 @@ tbody tr:hover {
   min-height: 360px;
   padding: 14px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(248, 252, 250, 0.58)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 252, 250, 0.72)),
     repeating-linear-gradient(90deg, transparent 0 54px, rgba(8, 125, 145, 0.05) 54px 55px);
 }
 
