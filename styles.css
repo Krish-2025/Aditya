@@ -29,8 +29,20 @@ body {
     repeating-linear-gradient(0deg, rgba(45, 100, 179, 0.058) 0 1px, transparent 1px 56px),
     linear-gradient(180deg, rgba(248, 252, 250, 0.88) 0%, rgba(237, 247, 243, 0.88) 44%, rgba(243, 248, 247, 0.92) 100%),
     var(--bg);
+  background-position: 0 0, 0 0, 0 0, 0 0;
   color: var(--ink);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  animation: page-grid-drift 80s linear infinite;
+}
+
+@keyframes page-grid-drift {
+  from {
+    background-position: 0 0, 0 0, 0 0, 0 0;
+  }
+
+  to {
+    background-position: 56px 0, 0 56px, 0 0, 0 0;
+  }
 }
 
 .live-background {
@@ -880,6 +892,10 @@ svg {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  body {
+    animation: none;
+  }
+
   .live-background {
     opacity: 0.42;
   }
